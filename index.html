@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DeepSight — À la recherche des Deeptechs</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  /* ═══════════════════════════════════════════════
+     DESIGN TOKENS — conserve la palette existante
+     mais recentre la hiérarchie sur le podcast
+  ═══════════════════════════════════════════════ */
+  :root {
+    --bg: #05060a; --bg-2: #0b0d14; --surface: #10131c; --border: #1f2330;
+    --text: #e9edf5; --muted: #8a93a6;
+    --accent: #7c5cff; --accent-2: #22d3ee; --accent-3: #f472b6; --success: #34d399;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; overflow-x: hidden; }
+  a { color: inherit; text-decoration: none; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  img { max-width: 100%; }
+
+  /* ── NAV ── */
+  nav { position: sticky; top: 0; z-index: 50; backdrop-filter: blur(16px); background: rgba(5,6,10,.78); border-bottom: 1px solid var(--border); }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; max-width: 1200px; margin: 0 auto; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: -.02em; }
+  .logo-dot { width: 22px; height: 22px; border-radius: 6px; background: conic-gradient(from 180deg, var(--accent), var(--accent-2), var(--accent-3), var(--accent)); box-shadow: 0 0 20px rgba(124,92,255,.55); }
+  .nav-links { display: flex; gap: 28px; font-size: 14px; color: var(--muted); }
+  .nav-links a:hover { color: var(--text); }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; transition: transform .15s, box-shadow .15s; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #0b0d14; box-shadow: 0 8px 24px -6px rgba(124,92,255,.5); }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 14px 34px -8px rgba(124,92,255,.7); }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--accent); }
+  .btn-sm { padding: 8px 14px; font-size: 13px; }
+  .btn-yt { background: #FF0000; color: #fff; }
+  .btn-spotify { background: #1DB954; color: #fff; }
+  .btn-apple { background: #fff; color: #0b0d14; }
+
+  /* ── HERO — PODCAST FIRST ── */
+  .hero { position: relative; padding: 80px 0 64px; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: 0; background: radial-gradient(900px 500px at 15% -10%, rgba(124,92,255,.22), transparent 60%), radial-gradient(700px 400px at 90% 10%, rgba(34,211,238,.18), transparent 60%); pointer-events: none; }
+  .hero-content { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+  .hero-text { max-width: 580px; }
+  .hero-label { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+  .hero-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 10px var(--success); }
+  h1 { font-size: clamp(34px, 4.8vw, 56px); line-height: 1.08; letter-spacing: -.03em; font-weight: 800; margin-bottom: 18px; }
+  h1 .grad { background: linear-gradient(120deg, #fff 0%, #c4b5fd 40%, #22d3ee 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero-sub { font-size: 17px; color: var(--muted); margin-bottom: 28px; line-height: 1.7; }
+  .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  .hero-platforms { display: flex; gap: 16px; align-items: center; color: var(--muted); font-size: 13px; }
+  .hero-platforms span { opacity: .6; }
+
+  /* Player Card */
+  .player-card { background: linear-gradient(180deg, var(--surface), var(--bg-2)); border: 1px solid var(--border); border-radius: 18px; padding: 0; overflow: hidden; box-shadow: 0 24px 60px -20px rgba(0,0,0,.8); position: relative; }
+  .player-card::before { content: ""; position: absolute; inset: -1px; border-radius: 18px; padding: 1px; background: linear-gradient(135deg, rgba(124,92,255,.5), rgba(34,211,238,.2), transparent 60%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+  .player-cover { width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, #1e1b4b, #0e7490); display: flex; align-items: center; justify-content: center; font-size: 64px; position: relative; }
+  .player-cover .play-big { width: 72px; height: 72px; border-radius: 50%; background: rgba(255,255,255,.15); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; font-size: 28px; cursor: pointer; border: 2px solid rgba(255,255,255,.3); transition: transform .2s; }
+  .player-cover .play-big:hover { transform: scale(1.1); }
+  .player-info { padding: 20px 22px; }
+  .player-ep { font-size: 12px; color: var(--accent-2); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; }
+  .player-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .player-guest { color: var(--muted); font-size: 14px; margin-bottom: 14px; }
+  .player-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+  .player-bar-fill { width: 35%; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 2px; }
+  .player-time { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+
+  /* ── SECTION GENERICS ── */
+  section { padding: 80px 0; position: relative; }
+  .section-label { color: var(--accent-2); font-size: 13px; text-transform: uppercase; letter-spacing: .2em; font-weight: 600; margin-bottom: 14px; }
+  h2 { font-size: clamp(26px, 3.4vw, 40px); line-height: 1.1; letter-spacing: -.025em; font-weight: 800; margin-bottom: 16px; max-width: 720px; }
+  .section-sub { font-size: 16px; color: var(--muted); max-width: 600px; margin-bottom: 40px; }
+
+  /* ── ÉPISODES RÉCENTS ── */
+  .episodes-section { background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .episodes-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
+  .episodes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .ep-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; transition: transform .2s, border-color .2s; cursor: pointer; }
+  .ep-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+  .ep-cover { aspect-ratio: 16/9; background: linear-gradient(135deg, #312e81, #0891b2); display: flex; align-items: center; justify-content: center; font-size: 40px; position: relative; }
+  .ep-number { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,.6); backdrop-filter: blur(6px); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; color: var(--accent-2); }
+  .ep-duration { position: absolute; bottom: 12px; right: 12px; background: rgba(0,0,0,.7); padding: 3px 8px; border-radius: 4px; font-size: 11px; color: var(--text); }
+  .ep-body { padding: 18px; }
+  .ep-tag { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; background: rgba(124,92,255,.12); color: var(--accent); border: 1px solid rgba(124,92,255,.25); margin-bottom: 10px; }
+  .ep-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; line-height: 1.3; }
+  .ep-guest { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .ep-excerpt { font-size: 13px; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* ── CHERCHEURS ── */
+  .researchers-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .researcher { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 20px; text-align: center; transition: transform .2s, border-color .2s; cursor: pointer; }
+  .researcher:hover { transform: translateY(-3px); border-color: var(--accent-2); }
+  .researcher-avatar { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .researcher h4 { font-size: 15px; margin-bottom: 4px; }
+  .researcher p { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+  .researcher .r-tag { font-size: 11px; padding: 3px 10px; border-radius: 999px; background: rgba(34,211,238,.1); color: var(--accent-2); border: 1px solid rgba(34,211,238,.25); }
+
+  /* ── THÈSE / MISSION ── */
+  .mission-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .mission-card { padding: 32px 28px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
+  .mission-card.highlight { border-color: rgba(124,92,255,.35); background: linear-gradient(180deg, rgba(124,92,255,.08), var(--surface)); }
+  .mission-card h3 { font-size: 20px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+  .mission-card p { color: var(--muted); font-size: 14px; line-height: 1.7; }
+  .mission-card ul { list-style: none; display: flex; flex-direction: column; gap: 10px; color: var(--muted); font-size: 14px; margin-top: 14px; }
+  .mission-card ul li { display: flex; align-items: flex-start; gap: 10px; }
+  .mission-card ul li::before { content: "→"; color: var(--accent-2); font-weight: 700; flex-shrink: 0; }
+
+  /* ── AUDIENCES ── */
+  .audience-section { background: var(--bg-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .audience-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .aud-card { padding: 28px 24px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); transition: transform .2s, border-color .2s; }
+  .aud-card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .aud-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 16px; }
+  .aud-1 .aud-icon { background: rgba(124,92,255,.15); color: var(--accent); }
+  .aud-2 .aud-icon { background: rgba(34,211,238,.15); color: var(--accent-2); }
+  .aud-3 .aud-icon { background: rgba(244,114,182,.15); color: var(--accent-3); }
+  .aud-card h3 { font-size: 18px; margin-bottom: 8px; }
+  .aud-card p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+  /* ── FORMAT DU PODCAST ── */
+  .format-timeline { max-width: 700px; margin: 0 auto; position: relative; }
+  .format-timeline::before { content: ""; position: absolute; left: 24px; top: 0; bottom: 0; width: 2px; background: linear-gradient(180deg, var(--accent), var(--accent-2), var(--accent-3)); border-radius: 1px; }
+  .format-step { display: flex; gap: 24px; margin-bottom: 32px; position: relative; }
+  .format-step:last-child { margin-bottom: 0; }
+  .format-dot { width: 50px; height: 50px; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; z-index: 1; }
+  .format-step:nth-child(2) .format-dot { border-color: var(--accent-2); }
+  .format-step:nth-child(3) .format-dot { border-color: var(--accent-3); }
+  .format-content h3 { font-size: 17px; margin-bottom: 6px; margin-top: 4px; }
+  .format-content p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .format-content .tag { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px; font-size: 11px; background: rgba(124,92,255,.1); color: var(--accent); border: 1px solid rgba(124,92,255,.25); }
+
+  /* ── STATS ── */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+  .stat { padding: 32px 24px; border-right: 1px solid var(--border); text-align: center; }
+  .stat:last-child { border-right: none; }
+  .stat-num { font-size: 36px; font-weight: 800; background: linear-gradient(135deg, #fff, var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .stat-label { color: var(--muted); font-size: 13px; margin-top: 4px; }
+
+  /* ── NEWSLETTER ── */
+  .cta-newsletter { background: linear-gradient(135deg, rgba(124,92,255,.14), rgba(34,211,238,.08)); border: 1px solid var(--border); border-radius: 20px; padding: 56px 48px; text-align: center; position: relative; overflow: hidden; }
+  .cta-newsletter::before { content: ""; position: absolute; inset: 0; background: radial-gradient(500px 200px at 50% 0%, rgba(124,92,255,.3), transparent 60%); pointer-events: none; }
+  .cta-newsletter h2 { margin: 0 auto 12px; text-align: center; }
+  .cta-newsletter p { color: var(--muted); max-width: 500px; margin: 0 auto 24px; font-size: 15px; }
+  .form-row { display: flex; gap: 10px; max-width: 460px; margin: 0 auto; position: relative; z-index: 1; }
+  .form-row input, .form-row select { flex: 1; padding: 14px 18px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 15px; font-family: inherit; }
+  .form-row input:focus, .form-row select:focus { outline: none; border-color: var(--accent); }
+  .form-row select { max-width: 160px; cursor: pointer; }
+  .form-note { font-size: 12px; color: var(--muted); margin-top: 12px; }
+  .form-msg { font-size: 13px; margin-top: 10px; min-height: 20px; }
+  .form-msg.ok { color: var(--success); }
+  .form-msg.err { color: var(--accent-3); }
+
+  /* ── FOOTER ── */
+  footer { padding: 48px 0 36px; border-top: 1px solid var(--border); background: var(--bg-2); }
+  .foot-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 36px; }
+  .foot-grid h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 12px; }
+  .foot-grid ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .foot-grid a { color: var(--muted); font-size: 14px; }
+  .foot-grid a:hover { color: var(--text); }
+  .foot-bot { padding-top: 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; flex-wrap: wrap; gap: 10px; }
+  .foot-about { max-width: 340px; color: var(--muted); font-size: 13px; margin-top: 10px; line-height: 1.6; }
+
+  /* ── MOBILE ── */
+  .hamburger { display: none; background: none; border: none; color: var(--text); font-size: 24px; cursor: pointer; }
+  @media (max-width: 900px) {
+    .hero-content, .mission-grid { grid-template-columns: 1fr; }
+    .episodes-grid { grid-template-columns: 1fr; }
+    .researchers-grid { grid-template-columns: repeat(2, 1fr); }
+    .audience-grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat:nth-child(2) { border-right: none; }
+    .stat:nth-child(1), .stat:nth-child(2) { border-bottom: 1px solid var(--border); }
+    .foot-grid { grid-template-columns: 1fr 1fr; }
+    .nav-links { display: none; }
+    .hamburger { display: block; }
+    section { padding: 56px 0; }
+    .hero { padding: 56px 0 48px; }
+    .hero-ctas { flex-direction: column; }
+    .hero-ctas .btn { width: 100%; justify-content: center; }
+    .form-row { flex-direction: column; }
+    .form-row select { max-width: 100%; }
+  }
+  @media (max-width: 480px) {
+    .container { padding: 0 16px; }
+    .researchers-grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .foot-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="logo"><span class="logo-dot"></span><span>DeepSight</span><span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px">À la recherche des Deeptechs</span></a>
+    <div class="nav-links">
+      <a href="#episodes">Épisodes</a>
+      <a href="#chercheurs">Chercheurs</a>
+      <a href="#mission">Notre mission</a>
+      <a href="#format">Le format</a>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <a href="#newsletter" class="btn btn-primary btn-sm">🎧 S'abonner</a>
+      <button class="hamburger" aria-label="Menu">&#9776;</button>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="container hero-content">
+    <div class="hero-text">
+      <span class="hero-label"><span class="dot"></span> Saison 1 en cours</span>
+      <h1>À la recherche des <span class="grad">Deeptechs</span></h1>
+      <p class="hero-sub">DeepSight est le podcast de Mines Paris PSL qui donne le micro aux chercheurs et entrepreneurs travaillant sur des technologies de rupture. Chaque épisode décrypte une innovation, son marché et son potentiel de transfert technologique.</p>
+      <div class="hero-ctas">
+        <a href="https://www.youtube.com/@DeepSightPSL" target="_blank" class="btn btn-primary">▶ Regarder sur YouTube</a>
+        <a href="#episodes" class="btn btn-ghost">Voir les épisodes →</a>
+      </div>
+      <div class="hero-platforms">
+        Disponible sur <span style="opacity:1;color:var(--text)">YouTube</span> <span style="font-size:11px;color:var(--muted)">(bientôt Spotify, Apple Podcasts, Soundcloud)</span>
+      </div>
+    </div>
+
+    <!-- Mini player — dernier épisode (VRAI contenu YouTube) -->
+    <div class="player-card">
+      <div class="player-cover">
+        <div style="position:absolute;inset:0;background:linear-gradient(135deg,#1e1b4b 0%,#0e7490 60%,#831843 100%);opacity:.9"></div>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px">
+          <div style="font-size:14px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.15em">Dernier épisode</div>
+          <a href="https://www.youtube.com/@DeepSightPSL" target="_blank" class="play-big" style="text-decoration:none;color:#0b0d14">▶</a>
+          <div style="font-size:13px;color:rgba(255,255,255,.6);margin-top:4px">43 min</div>
+        </div>
+      </div>
+      <div class="player-info">
+        <div class="player-ep">Épisode #2 — Saison 1</div>
+        <div class="player-title">EktaH, la startup française qui peut mettre fin à l'obésité</div>
+        <div class="player-guest">Interview filmée — Mines Paris PSL</div>
+        <div class="player-bar"><div class="player-bar-fill"></div></div>
+        <div class="player-time"><span>0:00</span><span>43:32</span></div>
+      </div>
+    </div>
+  </div>
+  </div>
+</header>
+
+<!-- LOGOS -->
+<div style="padding:32px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg-2)">
+  <div class="container" style="display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap;opacity:.7">
+    <span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.2em">Un podcast de</span>
+    <div style="display:flex;gap:40px;flex-wrap:wrap;color:var(--muted);font-weight:600;font-size:15px">
+      <span>MINES PARIS · PSL</span>
+      <span>SATT PSL</span>
+      <span>Agoranov</span>
+    </div>
+  </div>
+</div>
+
+<!-- ÉPISODES -->
+<section id="episodes" class="episodes-section">
+  <div class="container">
+    <div class="episodes-header">
+      <div>
+        <div class="section-label">Épisodes</div>
+        <h2>Dernières interviews</h2>
+      </div>
+      <a href="#" class="btn btn-ghost btn-sm">Voir tous les épisodes →</a>
+    </div>
+    <div class="episodes-grid">
+      <!-- VRAI Épisode 2 — EktaH -->
+      <div class="ep-card">
+        <div class="ep-cover" style="background:linear-gradient(135deg,#312e81,#7c2d12)">
+          <div class="ep-number">#2</div>
+          <div class="ep-duration">43:32</div>
+          🧬
+        </div>
+        <div class="ep-body">
+          <span class="ep-tag">Biotech / Santé</span>
+          <div class="ep-title">EktaH, la startup française qui peut mettre fin à l'obésité</div>
+          <div class="ep-guest">Interview — Mines Paris PSL</div>
+          <div class="ep-excerpt">Découvrez EktaH, une deeptech issue de la recherche française qui s'attaque à l'obésité avec une approche de rupture.</div>
+        </div>
+      </div>
+
+      <!-- VRAI Épisode 1 — Solar Dashboard -->
+      <div class="ep-card">
+        <div class="ep-cover" style="background:linear-gradient(135deg,#0e7490,#16a34a)">
+          <div class="ep-number">#1</div>
+          <div class="ep-duration">39:46</div>
+          ☀️
+        </div>
+        <div class="ep-body">
+          <span class="ep-tag">Énergie / Photovoltaïque</span>
+          <div class="ep-title">Solar Dashboard — Un algorithme pour un photovoltaïque en mutation</div>
+          <div class="ep-guest">Interview — Mines Paris PSL</div>
+          <div class="ep-excerpt">Comment un algorithme développé dans les labos peut transformer la gestion et l'optimisation du photovoltaïque.</div>
+        </div>
+      </div>
+
+      <!-- Teaser Saison 1 -->
+      <div class="ep-card" style="opacity:.7">
+        <div class="ep-cover" style="background:linear-gradient(135deg,#1e1b4b,#831843)">
+          <div class="ep-number">Teaser</div>
+          <div class="ep-duration">1:08</div>
+          🎬
+        </div>
+        <div class="ep-body">
+          <span class="ep-tag" style="background:rgba(34,211,238,.1);color:var(--accent-2);border-color:rgba(34,211,238,.25)">Saison 1</span>
+          <div class="ep-title">Teaser Saison 1 — DeepSight</div>
+          <div class="ep-guest">Bande-annonce</div>
+          <div class="ep-excerpt">Découvrez DeepSight, le podcast qui donne le micro aux chercheurs deeptech de l'écosystème Mines Paris PSL.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHERCHEURS -->
+<section id="chercheurs">
+  <div class="container">
+    <div class="section-label">Nos invités</div>
+    <h2>Ils ont pris le micro.</h2>
+    <p class="section-sub">Chaque invité est un expert de rupture. Retrouvez leur profil, leur labo, et leurs coordonnées pour initier une collaboration.</p>
+    <div class="researchers-grid" style="grid-template-columns:repeat(2,1fr);max-width:600px">
+      <!-- Invité Ép. 2 — EktaH -->
+      <div class="researcher">
+        <div class="researcher-avatar" style="background:linear-gradient(135deg,#312e81,#7c2d12)">👨‍🔬</div>
+        <h4>Invité EktaH</h4>
+        <p>Biotech / Santé</p>
+        <span class="r-tag">Ép. #2</span>
+      </div>
+      <!-- Invité Ép. 1 — Solar Dashboard -->
+      <div class="researcher">
+        <div class="researcher-avatar" style="background:linear-gradient(135deg,#0e7490,#16a34a)">👨‍🔬</div>
+        <h4>Invité Solar Dashboard</h4>
+        <p>Énergie / Photovoltaïque</p>
+        <span class="r-tag">Ép. #1</span>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:28px;padding:24px;border-radius:var(--radius);border:1px dashed var(--border);background:var(--surface)">
+      <p style="color:var(--muted);font-size:14px;margin-bottom:12px">Cette galerie s'enrichira au fil des épisodes. Prochain invité bientôt.</p>
+      <a href="#newsletter" class="btn btn-ghost btn-sm">Être notifié des prochains épisodes →</a>
+    </div>
+  </div>
+</section>
+
+<!-- MISSION -->
+<section id="mission" style="background:var(--bg-2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <div class="container">
+    <div class="section-label">Notre mission</div>
+    <h2>Mettre en valeur la recherche scientifique. Faciliter le transfert technologique.</h2>
+    <p class="section-sub">DeepSight est né d'un constat simple : les innovations de rupture des laboratoires Mines Paris et PSL méritent d'être vues, comprises et exploitées.</p>
+    <div class="mission-grid">
+      <div class="mission-card">
+        <h3>🔬 Pour les chercheurs</h3>
+        <p>Présenter vos travaux au-delà du cercle académique. Illustrer les retombées et impacts sociétaux. Prendre du recul sur la maturité entrepreneuriale de votre projet.</p>
+        <ul>
+          <li>Visibilité auprès d'entrepreneurs et investisseurs</li>
+          <li>Mise en avant de vos résultats et perspectives</li>
+          <li>Coordonnées de contact publiées avec votre accord</li>
+        </ul>
+      </div>
+      <div class="mission-card highlight">
+        <h3>🚀 Pour les entrepreneurs</h3>
+        <p>Identifier un projet de recherche sur lequel vous voudriez travailler. Chaque épisode est une opportunité de découvrir une technologie de rupture et de contacter directement le chercheur.</p>
+        <ul>
+          <li>Technologies deeptech décryptées et accessibles</li>
+          <li>Analyse de maturité (brevet, TRL, spin-off)</li>
+          <li>Accès direct aux coordonnées des chercheurs</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FORMAT -->
+<section id="format">
+  <div class="container">
+    <div class="section-label">Le format</div>
+    <h2>Une interview, trois angles de rupture.</h2>
+    <p class="section-sub">Chaque épisode suit une trame structurée en 3 parties pour couvrir le spectre complet : de la science au marché.</p>
+    <div class="format-timeline">
+      <div class="format-step">
+        <div class="format-dot">🔬</div>
+        <div class="format-content">
+          <h3>A — Technologie</h3>
+          <p>Le chercheur présente son sujet de recherche, ses résultats et les prochaines étapes. On aborde aussi le paysage concurrentiel scientifique.</p>
+          <span class="tag">~15–20 min</span>
+        </div>
+      </div>
+      <div class="format-step">
+        <div class="format-dot">📊</div>
+        <div class="format-content">
+          <h3>B — Marché</h3>
+          <p>Applications concrètes des travaux. Premiers éléments d'analyse de marché, positionnement vis-à-vis de l'industrie et des concurrents.</p>
+          <span class="tag">~10–15 min</span>
+        </div>
+      </div>
+      <div class="format-step">
+        <div class="format-dot">🔄</div>
+        <div class="format-content">
+          <h3>C — Transfert technologique</h3>
+          <p>Brevets, spin-off ou licensing ? Quel rôle pour le chercheur ? De quoi a-t-il besoin pour passer à l'échelle ? Comment améliorer le transfert techno en France ?</p>
+          <span class="tag">~10–15 min</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- POUR QUI -->
+<section class="audience-section">
+  <div class="container">
+    <div class="section-label">Pour qui ?</div>
+    <h2>Un podcast, trois portes d'entrée.</h2>
+    <div class="audience-grid">
+      <div class="aud-card aud-1">
+        <div class="aud-icon">🔬</div>
+        <h3>Chercheurs</h3>
+        <p>Vous travaillez sur une technologie de rupture ? Passez dans un épisode pour présenter vos travaux et vous rendre visible auprès de l'écosystème entrepreneurial.</p>
+      </div>
+      <div class="aud-card aud-2">
+        <div class="aud-icon">🚀</div>
+        <h3>Entrepreneurs &amp; investisseurs</h3>
+        <p>Identifiez des technologies matures pour le transfert. Chaque épisode vous donne les clés : brevet, TRL, marché, et les coordonnées du chercheur.</p>
+      </div>
+      <div class="aud-card aud-3">
+        <div class="aud-icon">🎓</div>
+        <h3>Étudiants ingénieurs</h3>
+        <p>Découvrez l'entrepreneuriat scientifique à travers des parcours inspirants. Trouvez votre sujet de thèse ou votre futur co-fondateur.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section>
+  <div class="container">
+    <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat"><div class="stat-num">2</div><div class="stat-label">épisodes publiés</div></div>
+      <div class="stat"><div class="stat-num">~40</div><div class="stat-label">minutes par épisode</div></div>
+      <div class="stat"><div class="stat-num">S1</div><div class="stat-label">saison en cours</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- NEWSLETTER -->
+<section id="newsletter">
+  <div class="container">
+    <div class="cta-newsletter">
+      <h2>Ne manquez aucun épisode.</h2>
+      <p>Recevez chaque nouvel épisode dans votre boîte mail, avec un résumé et les points clés de l'interview.</p>
+      <form id="newsletterForm" class="form-row">
+        <input type="email" id="nlEmail" placeholder="votre@email.com" required />
+        <select id="nlAudience">
+          <option value="general">Je suis...</option>
+          <option value="chercheur">Chercheur</option>
+          <option value="entrepreneur">Entrepreneur</option>
+          <option value="etudiant">Étudiant</option>
+          <option value="investisseur">Investisseur</option>
+        </select>
+        <button type="submit" class="btn btn-primary">S'abonner</button>
+      </form>
+      <div id="nlMsg" class="form-msg"></div>
+      <div class="form-note">Gratuit · Pas de spam · Désabonnement en 1 clic</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <div class="logo"><span class="logo-dot"></span><span>DeepSight</span></div>
+        <p style="font-size:12px;color:var(--accent-2);margin-top:4px;letter-spacing:.05em">À la recherche des Deeptechs</p>
+        <p class="foot-about">Le podcast de Mines Paris PSL qui donne le micro aux chercheurs et entrepreneurs deeptech. Mettre en valeur la recherche scientifique par l'entrepreneuriat.</p>
+      </div>
+      <div>
+        <h4>Podcast</h4>
+        <ul>
+          <li><a href="#">Tous les épisodes</a></li>
+          <li><a href="#">Chercheurs</a></li>
+          <li><a href="#">Proposer un invité</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Regarder / Écouter</h4>
+        <ul>
+          <li><a href="https://www.youtube.com/@DeepSightPSL" target="_blank">YouTube</a></li>
+          <li><a href="#" style="opacity:.5">Spotify (bientôt)</a></li>
+          <li><a href="#" style="opacity:.5">Apple Podcasts (bientôt)</a></li>
+          <li><a href="#" style="opacity:.5">Soundcloud (bientôt)</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Institution</h4>
+        <ul>
+          <li><a href="#">Mines Paris PSL</a></li>
+          <li><a href="#">PSL</a></li>
+          <li><a href="#">SATT PSL</a></li>
+          <li><a href="#">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2026 DeepSight — Mines Paris PSL</span>
+      <span>Mentions légales · Confidentialité</span>
+    </div>
+  </div>
+</footer>
+
+
+<script>
+const SUPABASE_URL = 'https://zyrijkiqlqgzsoweriae.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5cmlqa2lxbHFnenNvd2VyaWFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzMjI3NDUsImV4cCI6MjA5MTg5ODc0NX0.9hWi6VDC4finj3Vlu0D2Wcp0xCDImHUYgrEf5Nu7230';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+document.getElementById('newsletterForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msgEl = document.getElementById('nlMsg');
+  const email = document.getElementById('nlEmail').value.trim();
+  const audience = document.getElementById('nlAudience').value;
+  const btn = e.target.querySelector('button');
+
+  btn.textContent = '...';
+  btn.disabled = true;
+
+  const { error } = await sb.from('ds_subscribers').insert({ email, audience });
+
+  if (error) {
+    if (error.code === '23505') {
+      msgEl.className = 'form-msg err';
+      msgEl.textContent = 'Cet email est déjà inscrit !';
+    } else {
+      msgEl.className = 'form-msg err';
+      msgEl.textContent = 'Erreur, veuillez réessayer.';
+      console.error(error);
+    }
+  } else {
+    msgEl.className = 'form-msg ok';
+    msgEl.textContent = 'Bienvenue dans la communauté DeepSight !';
+    document.getElementById('nlEmail').value = '';
+  }
+
+  btn.textContent = "S'abonner";
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>
